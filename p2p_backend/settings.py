@@ -5,6 +5,7 @@ Django settings for p2p_backend project.
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +35,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
+    'drf_spectacular_sidecar',
     
     # Local apps
     'roles',
@@ -84,6 +86,10 @@ DATABASES = {
         'PORT': config('DB_PORT', default=''),
     }
 }
+
+# Update database configuration with $DATABASE_URL.
+db_from_env = dj_database_url.config(conn_max_age=500)
+DATABASES['default'].update(db_from_env)
 
 
 # Custom User Model
