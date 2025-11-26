@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status, generics
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -22,6 +22,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     search_fields = ['username', 'email', 'first_name', 'last_name', 'employee_id']
     ordering_fields = ['username', 'created_at', 'date_joined']
     filterset_fields = ['role', 'is_active', 'department']
@@ -42,7 +43,31 @@ class UserViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return super().get_permissions()
 
-    @action(detail=False, methods=['get', 'put', 'patch'])
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(
+            {'message': 'User created successfully'},
+            status=status.HTTP_201_CREATED
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(
+            {'message': 'User updated successfully'},
+            status=status.HTTP_200_OK
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    @action(detail=False, methods=['get', 'patch'])
     def profile(self, request):
         """
         Get or update current user's profile
@@ -56,7 +81,10 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = UserProfileSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(
+                {'message': 'Profile updated successfully'},
+                status=status.HTTP_200_OK
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'])
@@ -95,12 +123,3 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         permissions = user.get_permissions()
         return Response({'permissions': permissions})
-
-
-class RegisterView(generics.CreateAPIView):
-    """
-    API endpoint for user registration
-    """
-    queryset = User.objects.all()
-    permission_classes = [AllowAny]
-    serializer_class = UserRegistrationSerializer

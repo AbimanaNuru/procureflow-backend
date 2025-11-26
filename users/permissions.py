@@ -20,7 +20,7 @@ class HasPermission(BasePermission):
         if not required_permission:
             return True
 
-        return request.user.has_permission(required_permission)
+        return request.user.has_perm(required_permission)
 
 
 class CanCreateRequest(BasePermission):
@@ -32,7 +32,7 @@ class CanCreateRequest(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        return request.user.has_permission('create_request')
+        return request.user.has_perm('procurement.add_purchaserequest')
 
 
 class CanApproveRequest(BasePermission):
@@ -44,7 +44,7 @@ class CanApproveRequest(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        return request.user.has_permission('approve_request')
+        return request.user.has_perm('procurement.approve_purchaserequest')
 
 
 class CanViewRequest(BasePermission):
@@ -56,7 +56,7 @@ class CanViewRequest(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        return request.user.has_permission('view_request')
+        return request.user.has_perm('procurement.view_purchaserequest')
 
 
 class IsOwnerOrReadOnly(BasePermission):

@@ -43,7 +43,6 @@ INSTALLED_APPS = [
     'drf_spectacular_sidecar',
     
     # Local apps
-    'roles',
     'users',
     'procurement',
 ]

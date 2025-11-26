@@ -39,8 +39,8 @@ class PurchaseRequestAdmin(admin.ModelAdmin):
 
 @admin.register(RequestApprovalLevel)
 class RequestApprovalLevelAdmin(admin.ModelAdmin):
-    list_display = ['request', 'level', 'role', 'status', 'approver', 'timestamp']
-    list_filter = ['status', 'role', 'level']
+    list_display = ['request', 'level', 'group', 'status', 'approver', 'timestamp']
+    list_filter = ['status', 'group', 'level']
     search_fields = ['request__title', 'approver__username']
     readonly_fields = ['created_at']
 

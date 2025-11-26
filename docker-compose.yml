@@ -5,9 +5,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=procureflow_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres123
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     ports:
       - "5433:5432" # Changed to 5433 to avoid conflict with local PostgreSQL
     healthcheck:
@@ -16,11 +16,22 @@ services:
       timeout: 5s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: procureflow_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
   web:
     build: .
     container_name: procureflow_backend
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "python manage.py migrate || true &&
+             python manage.py init_admin &&
              python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/app
@@ -28,17 +39,11 @@ services:
       - static_volume:/app/staticfiles
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - DEBUG=True
-      - SECRET_KEY=django-insecure-docker-dev-key-change-in-production
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=procureflow_db
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres123
-      - DB_HOST=db
-      - DB_PORT=5432
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
     depends_on:
       db:
         condition: service_healthy
