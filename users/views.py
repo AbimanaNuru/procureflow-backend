@@ -48,7 +48,7 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(
-            {'message': 'User created successfully'},
+            {'detail': 'User created successfully'},
             status=status.HTTP_201_CREATED
         )
 
@@ -59,7 +59,7 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(
-            {'message': 'User updated successfully'},
+            {'detail': 'User updated successfully'},
             status=status.HTTP_200_OK
         )
 
@@ -82,7 +82,7 @@ class UserViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             serializer.save()
             return Response(
-                {'message': 'Profile updated successfully'},
+                {'detail': 'Profile updated successfully'},
                 status=status.HTTP_200_OK
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -109,7 +109,7 @@ class UserViewSet(viewsets.ModelViewSet):
             update_session_auth_hash(request, user)
 
             return Response(
-                {'message': 'Password updated successfully'},
+                {'detail': 'Password updated successfully'},
                 status=status.HTTP_200_OK
             )
 

@@ -7,26 +7,31 @@ from datetime import timedelta
 from decouple import config
 import dj_database_url
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# SECURITY WARNING: keep the secret key used in production secret!
+# ----------------------------------------------------
+# SECURITY
+# ----------------------------------------------------
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com').split(',')
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    ".onrender.com",
+]
 
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:3000,http://localhost:5173,https://procureflow-backend.onrender.com'
-).split(',')
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "https://procureflow-backend.onrender.com",
+]
 
-
-# Application definition
-
+# ----------------------------------------------------
+# APPLICATIONS
+# ----------------------------------------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,23 +39,29 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
     'drf_spectacular_sidecar',
-    
+
     # Local apps
     'users',
     'procurement',
 ]
 
+# ----------------------------------------------------
+# MIDDLEWARE
+# ----------------------------------------------------
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+
+    # CORS MUST BE ABOVE CommonMiddleware
     'corsheaders.middleware.CorsMiddleware',
+
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -78,8 +89,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'p2p_backend.wsgi.application'
 
-
-# Database
+# ----------------------------------------------------
+# DATABASE
+# ----------------------------------------------------
 DATABASES = {
     'default': {
         'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
@@ -91,55 +103,45 @@ DATABASES = {
     }
 }
 
-# Update database configuration with $DATABASE_URL.
+# Heroku / Render support
 db_from_env = dj_database_url.config(conn_max_age=500)
 DATABASES['default'].update(db_from_env)
 
-
-# Custom User Model
+# Custom user model
 AUTH_USER_MODEL = 'users.User'
 
-
-# Password validation
+# ----------------------------------------------------
+# PASSWORDS
+# ----------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
+# ----------------------------------------------------
+# INTERNATIONALIZATION
+# ----------------------------------------------------
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
+# ----------------------------------------------------
+# STATIC & MEDIA
+# ----------------------------------------------------
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Media files
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-# REST Framework Configuration
+# ----------------------------------------------------
+# REST FRAMEWORK
+# ----------------------------------------------------
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -156,8 +158,9 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-
-# JWT Configuration
+# ----------------------------------------------------
+# JWT
+# ----------------------------------------------------
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=config('JWT_ACCESS_TOKEN_LIFETIME', default=60, cast=int)),
     'REFRESH_TOKEN_LIFETIME': timedelta(minutes=config('JWT_REFRESH_TOKEN_LIFETIME', default=1440, cast=int)),
@@ -170,24 +173,37 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://localhost:5173,https://procureflow-backend.onrender.com'
-).split(',')
+# ----------------------------------------------------
+# CORS CONFIG (Correct & Complete)
+# ----------------------------------------------------
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
-# drf-spectacular Configuration
+# ----------------------------------------------------
+# drf-spectacular
+# ----------------------------------------------------
 SPECTACULAR_SETTINGS = {
     'TITLE': 'ProcureFlow API',
-    'DESCRIPTION': 'Django REST Framework procurement system with RBAC and multi-level approval workflow',
+    'DESCRIPTION': 'Django REST procurement system with RBAC + approval workflow',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
@@ -202,3 +218,11 @@ SPECTACULAR_SETTINGS = {
     'REDOC_DIST': 'SIDECAR',
 }
 
+# ----------------------------------------------------
+# GROQ AI CONFIGURATION
+# ----------------------------------------------------
+GROQ_API_KEY = config('GROQ_API_KEY', default=None)
+USE_AI_EXTRACTION = config('USE_AI_EXTRACTION', default=True, cast=bool)
+
+if not GROQ_API_KEY and USE_AI_EXTRACTION:
+    print("WARNING: GROQ_API_KEY not set. AI extraction features will not work.")

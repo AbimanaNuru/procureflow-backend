@@ -20,6 +20,14 @@ except ImportError as e:
     logger.warning(f"Document processing libraries not available: {e}")
     PROCESSING_AVAILABLE = False
 
+try:
+    from groq import Groq
+    from django.conf import settings
+    GROQ_AVAILABLE = True
+except ImportError:
+    logger.warning("Groq library not available. Install with: pip install groq")
+    GROQ_AVAILABLE = False
+
 
 class DocumentProcessor:
     """Base class for document processing"""
@@ -98,6 +106,68 @@ class DocumentProcessor:
         else:
             logger.warning(f"Unsupported file type: {extension}")
             return ""
+    @staticmethod
+    def extract_with_groq(text: str, doc_type: str) -> Dict:
+        """
+        Extract structured data using Groq API
+        doc_type: 'proforma' or 'receipt'
+        """
+        if not GROQ_AVAILABLE or not getattr(settings, 'GROQ_API_KEY', None):
+            logger.warning("Groq not available or API key missing")
+            return {}
+
+        try:
+            client = Groq(api_key=settings.GROQ_API_KEY)
+            
+            system_prompt = """
+            You are a precise document extraction AI. Extract data from the provided text and return ONLY a valid JSON object.
+            Do not include any markdown formatting like ```json ... ```. Just the raw JSON string.
+            
+            For 'proforma' or 'invoice':
+            {
+                "vendor": "Vendor Name",
+                "vendor_address": "Vendor Address",
+                "items": [
+                    {"name": "Item Description", "quantity": 1, "unit_price": 100.0, "total": 100.0}
+                ],
+                "subtotal": 100.0,
+                "tax": 10.0,
+                "total": 110.0,
+                "payment_terms": "Net 30"
+            }
+            
+            For 'receipt':
+            {
+                "vendor": "Vendor Name",
+                "items": [
+                    {"name": "Item Description", "quantity": 1, "unit_price": 10.0, "total": 10.0}
+                ],
+                "total": 10.0
+            }
+            
+            Ensure all numbers are floats or integers. If a field is not found, use null or empty string/list.
+            """
+            
+            user_prompt = f"Document Type: {doc_type}\n\nText Content:\n{text[:8000]}"
+            
+            completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model="llama-3.3-70b-versatile",
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            response_content = completion.choices[0].message.content
+            import json
+            data = json.loads(response_content)
+            return data
+            
+        except Exception as e:
+            logger.error(f"Groq extraction failed: {e}")
+            return {}
 
 
 class ProformaExtractor(DocumentProcessor):
@@ -238,7 +308,19 @@ class ProformaExtractor(DocumentProcessor):
                     'total': 0.0
                 }
             
-            # Extract components
+            # Try AI extraction first if enabled
+            if getattr(settings, 'USE_AI_EXTRACTION', True) and GROQ_AVAILABLE:
+                try:
+                    logger.info("Attempting AI extraction for proforma...")
+                    ai_data = cls.extract_with_groq(text, 'proforma')
+                    if ai_data and ai_data.get('vendor') and ai_data.get('total'):
+                        logger.info("AI extraction successful")
+                        ai_data['extraction_method'] = 'ai_groq'
+                        return ai_data
+                except Exception as e:
+                    logger.warning(f"AI extraction failed, falling back to regex: {e}")
+
+            # Fallback to regex extraction
             vendor_data = cls.extract_vendor(text)
             items = cls.extract_items(text)
             totals = cls.extract_totals(text)
@@ -252,7 +334,7 @@ class ProformaExtractor(DocumentProcessor):
                 'tax': totals['tax'],
                 'total': totals['total'],
                 'payment_terms': payment_terms,
-                'extraction_method': 'automated'
+                'extraction_method': 'regex_fallback'
             }
         
         except Exception as e:
@@ -277,6 +359,18 @@ class ReceiptValidator(DocumentProcessor):
             if not text:
                 return {'error': 'Could not extract text from receipt'}
             
+            # Try AI extraction first if enabled
+            if getattr(settings, 'USE_AI_EXTRACTION', True) and GROQ_AVAILABLE:
+                try:
+                    logger.info("Attempting AI extraction for receipt...")
+                    ai_data = cls.extract_with_groq(text, 'receipt')
+                    if ai_data and ai_data.get('total'):
+                        logger.info("AI extraction successful")
+                        ai_data['extraction_method'] = 'ai_groq'
+                        return ai_data
+                except Exception as e:
+                    logger.warning(f"AI extraction failed, falling back to regex: {e}")
+
             # Use similar extraction methods as proforma
             vendor_data = ProformaExtractor.extract_vendor(text)
             items = ProformaExtractor.extract_items(text)
@@ -286,7 +380,7 @@ class ReceiptValidator(DocumentProcessor):
                 'vendor': vendor_data['vendor'],
                 'items': items,
                 'total': totals['total'],
-                'extraction_method': 'automated'
+                'extraction_method': 'regex_fallback'
             }
         
         except Exception as e:

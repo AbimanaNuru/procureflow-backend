@@ -99,7 +99,7 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(
-            {'message': 'Purchase request updated successfully'},
+            {'detail': 'Purchase request updated successfully'},
             status=status.HTTP_200_OK
         )
 
@@ -146,7 +146,7 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
             )
             
             return Response(
-                {'message': 'Purchase request approved successfully'},
+                {'detail': 'Purchase request approved successfully'},
                 status=status.HTTP_200_OK
             )
         
@@ -195,7 +195,7 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
             )
             
             return Response(
-                {'message': 'Purchase request rejected successfully'},
+                {'detail': 'Purchase request rejected successfully'},
                 status=status.HTTP_200_OK
             )
         
@@ -260,7 +260,7 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
             purchase_request.save()
             
             return Response({
-                'message': 'Proforma processed successfully',
+                'detail': 'Proforma processed successfully',
                 'data': extracted_data
             }, status=status.HTTP_200_OK)
         
@@ -314,7 +314,7 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
             purchase_request.save()
             
             return Response({
-                'message': 'Receipt validated',
+                'detail': 'Receipt validated',
                 'validation': validation_result
             }, status=status.HTTP_200_OK)
         
@@ -339,6 +339,121 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(requests, many=True)
         return Response(serializer.data)
+    
+    @extend_schema(tags=['AI Document Processing'])
+    @action(detail=False, methods=['post'])
+    def extract_proforma(self, request):
+        """
+        Extract data from proforma document and create a purchase request
+        Upload a proforma file and get extracted data (vendor, items, prices)
+        The data will be saved to the database as a new PurchaseRequest
+        
+        Required fields:
+        - proforma: file upload
+        - title: request title (optional, will use vendor name if not provided)
+        - description: request description (optional)
+        """
+        from .document_processing import extract_proforma_data
+        from .services import ApprovalWorkflowService
+        from decimal import Decimal
+        import tempfile
+        import os
+        
+        # Check if file is uploaded
+        if 'proforma' not in request.FILES:
+            return Response(
+                {'error': 'No proforma file uploaded. Please include a file with key "proforma".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        proforma_file = request.FILES['proforma']
+        
+        try:
+            # Save file temporarily for extraction
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(proforma_file.name)[1]) as tmp_file:
+                for chunk in proforma_file.chunks():
+                    tmp_file.write(chunk)
+                tmp_file_path = tmp_file.name
+            
+            # Extract data using AI
+            extracted_data = extract_proforma_data(tmp_file_path)
+            
+            # Clean up temp file
+            os.unlink(tmp_file_path)
+            
+            if 'error' in extracted_data:
+                return Response(
+                    {'error': extracted_data['error'], 'data': extracted_data},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create PurchaseRequest with extracted data
+            title = request.data.get('title') or f"Purchase from {extracted_data.get('vendor', 'Unknown Vendor')}"
+            description = request.data.get('description') or f"Auto-generated from proforma: {proforma_file.name}"
+            
+            # Calculate total amount from extracted data
+            total_amount = Decimal(str(extracted_data.get('total', 0)))
+            
+            # Create the purchase request
+            purchase_request = PurchaseRequest.objects.create(
+                title=title,
+                description=description,
+                amount=total_amount,
+                created_by=request.user,
+                proforma=proforma_file,  # Save the actual file
+                proforma_data=extracted_data  # Save extracted data
+            )
+            
+            # Create RequestItems from extracted items
+            items_created = []
+            if 'items' in extracted_data and isinstance(extracted_data['items'], list):
+                for item_data in extracted_data['items']:
+                    item = RequestItem.objects.create(
+                        request=purchase_request,
+                        name=item_data.get('name', 'Unknown Item'),
+                        description=item_data.get('description', ''),
+                        quantity=int(item_data.get('quantity', 1)),
+                        unit_price=Decimal(str(item_data.get('unit_price', 0)))
+                    )
+                    items_created.append({
+                        'id': str(item.id),
+                        'name': item.name,
+                        'quantity': item.quantity,
+                        'unit_price': float(item.unit_price),
+                        'total_price': float(item.total_price)
+                    })
+            
+            # Recalculate total based on items (in case extraction was inaccurate)
+            from .services import calculate_request_total
+            calculate_request_total(purchase_request)
+            
+            # Set up approval workflow
+            ApprovalWorkflowService.update_approval_workflow(purchase_request)
+            
+            # Refresh from database to get updated values
+            purchase_request.refresh_from_db()
+            
+            return Response({
+                'success': True,
+                'message': 'Proforma processed and purchase request created successfully',
+                'request_id': str(purchase_request.id),
+                'title': purchase_request.title,
+                'amount': float(purchase_request.amount),
+                'required_levels': purchase_request.required_levels,
+                'items_created': len(items_created),
+                'extracted_data': extracted_data,
+                'items': items_created
+            }, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            # Clean up temp file if it exists
+            if 'tmp_file_path' in locals() and os.path.exists(tmp_file_path):
+                os.unlink(tmp_file_path)
+            
+            return Response(
+                {'error': f'Error processing proforma: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @extend_schema_view(
@@ -379,7 +494,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(
-            {'message': 'Purchase order created successfully'},
+            {'detail': 'Purchase order created successfully'},
             status=status.HTTP_201_CREATED
         )
 
@@ -390,7 +505,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(
-            {'message': 'Purchase order updated successfully'},
+            {'detail': 'Purchase order updated successfully'},
             status=status.HTTP_200_OK
         )
 
@@ -465,7 +580,7 @@ class RequestItemViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(
-            {'message': 'Request item created successfully'},
+            {'detail': 'Request item created successfully'},
             status=status.HTTP_201_CREATED
         )
 
@@ -476,7 +591,7 @@ class RequestItemViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(
-            {'message': 'Request item updated successfully'},
+            {'detail': 'Request item updated successfully'},
             status=status.HTTP_200_OK
         )
 
@@ -526,7 +641,7 @@ class ApprovalConfigViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(
-            {'message': 'Approval configuration created successfully'},
+            {'detail': 'Approval configuration created successfully'},
             status=status.HTTP_201_CREATED
         )
     
@@ -537,7 +652,7 @@ class ApprovalConfigViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(
-            {'message': 'Approval configuration updated successfully'},
+            {'detail': 'Approval configuration updated successfully'},
             status=status.HTTP_200_OK
         )
     
@@ -574,7 +689,7 @@ class ApprovalConfigViewSet(viewsets.ModelViewSet):
         if not config:
             return Response(
                 {
-                    'message': 'No configuration found for this amount. Default rules will apply.',
+                    'detail': 'No configuration found for this amount. Default rules will apply.',
                     'amount': amount_str,
                     'config': None
                 },
