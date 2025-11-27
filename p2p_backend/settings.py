@@ -26,7 +26,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8080",
-    "https://procureflow-backend.onrender.com",
+    "https://procureflow-frontend-1tfs.onrender.com"
+
 ]
 
 # ----------------------------------------------------
@@ -89,23 +90,26 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'p2p_backend.wsgi.application'
 
-# ----------------------------------------------------
 # DATABASE
 # ----------------------------------------------------
-DATABASES = {
-    'default': {
-        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
-        'NAME': config('DB_NAME', default=BASE_DIR / 'db.sqlite3'),
-        'USER': config('DB_USER', default=''),
-        'PASSWORD': config('DB_PASSWORD', default=''),
-        'HOST': config('DB_HOST', default=''),
-        'PORT': config('DB_PORT', default=''),
-    }
-}
+# Priority: DATABASE_URL > Individual DB settings > SQLite fallback
+db_from_env = dj_database_url.config(conn_max_age=500, default=None)
 
-# Heroku / Render support
-db_from_env = dj_database_url.config(conn_max_age=500)
-DATABASES['default'].update(db_from_env)
+if db_from_env:
+    # Use DATABASE_URL if available (Render, Heroku, etc.)
+    DATABASES = {'default': db_from_env}
+else:
+    # Fallback to individual DB settings or SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
+            'NAME': config('DB_NAME', default=BASE_DIR / 'db.sqlite3'),
+            'USER': config('DB_USER', default=''),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default=''),
+            'PORT': config('DB_PORT', default=''),
+        }
+    }
 
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
