@@ -34,5 +34,8 @@ RUN python manage.py collectstatic --noinput || true
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
+# Run the application via entrypoint
+CMD ["/app/entrypoint.sh"]
