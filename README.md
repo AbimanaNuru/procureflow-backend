@@ -206,7 +206,7 @@ sudo apt-get install tesseract-ocr poppler-utils
 4. **Access the application:**
    - API: [http://localhost:8000](http://localhost:8000)
    - Admin: [http://localhost:8000/admin](http://localhost:8000/admin)
-   - Swagger UI: [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/)
+   - Swagger UI: [http://localhost:8000/api/docs/#/](http://localhost:8000/api/docs/#/)
 
 ### Option B: Local Development Setup
 
@@ -413,7 +413,7 @@ curl -X POST http://localhost:8000/api/v1/procurement/requests/extract_proforma/
 
 Once the server is running, access the interactive documentation:
 
-- **Swagger UI**: [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/)
+- **Swagger UI**: [http://localhost:8000/](http://localhost:8000/)
 - **ReDoc**: [http://localhost:8000/api/schema/redoc/](http://localhost:8000/api/schema/redoc/)
 
 ## 💻 Development Workflow
@@ -835,7 +835,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Documentation**: [API Docs](http://localhost:8000/api/schema/swagger-ui/)
+- **Documentation**: [API Docs](http://localhost:8000/api/docs/#/)
 - **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
 

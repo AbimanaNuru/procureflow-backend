@@ -21,3 +21,9 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.get_full_name() or self.email})"
+
+    def get_permissions(self):
+        """
+        Return a list of all permissions for the user.
+        """
+        return list(self.get_all_permissions())
