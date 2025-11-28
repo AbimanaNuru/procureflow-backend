@@ -5,7 +5,6 @@ from .models import (
     ApprovalConfig, ApprovalConfigLevel
 )
 from users.serializers import UserSerializer
-from .models import ApprovalConfig, ApprovalConfigLevel
 
 
 class GroupSimpleSerializer(serializers.ModelSerializer):

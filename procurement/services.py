@@ -232,6 +232,3 @@ class ApprovalWorkflowService:
         ).filter(
             request__current_level=models.F('level')
         ).select_related('request', 'group')
-
-# Import models for the F expression
-from django.db import models
